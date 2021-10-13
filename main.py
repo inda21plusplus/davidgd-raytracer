@@ -1,30 +1,24 @@
 #!/usr/bin/env python
-from color import Color
-from vector import Vector
-from point import Point
-from sphere import Sphere
 from scene import Scene
 from engine import Renderer
-from light import Light
-from material import Material
 
 import argparse
+import importlib
+import os
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("imageout", help="Path to rendered images")
+    parser.add_argument("scene", help="Path to scene file (no .py)")
     args = parser.parse_args()
-    WIDTH = 320
-    HEIGHT = 200
-    camera = Vector(0, 0, -1)
-    objects = [Sphere(Point(0, 0, 0), 0.5,  Material(Color.from_hex("#FF0000")))]
-    lights = [Light(Point(1.5, -0.5, -10.0), Color.from_hex("#FFFFFF"))]
-    scene = Scene(camera, objects, lights, WIDTH, HEIGHT)
+    mod = importlib.import_module(args.scene)
+
+    scene = Scene(mod.CAMERA, mod.OBJECTS, mod.LIGHTS, mod.WIDTH, mod.HEIGHT)
     engine = Renderer()
     image = engine.render(scene)
-
-    with open(args.imageout, "w") as img_file:
+    
+    os.chdir(os.path.dirname(os.path.abspath(mod.__file__)))
+    with open(mod.RENDERED_IMAGE, "w") as img_file:
         image.write_ppm(img_file)
 
 

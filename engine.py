@@ -3,11 +3,17 @@ from ray import Ray
 from point import Point
 from color import Color
 
+import time
+
 
 class Renderer:
     """Renders our 3d world into 2d images and"""
 
+    MAX_DEPTH = 5
+    MIN_DISPLACEMENT = 0.0001
+
     def render(self, scene):
+        start_time = time.time()
         width = scene.width
         height = scene.height
         aspect_ratio = float(width) / height
@@ -28,12 +34,12 @@ class Renderer:
                 x = x0 + j * xpixelstep
                 ray = Ray(camera, Point(x, y) - camera)
                 pixels.set_pixel(j, i, self.ray_trace(ray, scene))
-            print("{:22} {:3} %".format(round(float(i) / float(height) * 20) * "=" + ">",
+            print("  8{:22} {:3} %".format(round(float(i) / float(height) * 20) * "=" + ">",
                                       round(float(i) / float(height) * 100)), end="\r")
-        print("\nDone")
+        print("\n  Render time: {} s\n  Done".format(round(time.time() - start_time, 3)))
         return pixels
 
-    def ray_trace(self, ray, scene):
+    def ray_trace(self, ray, scene, depth=0):
         color = Color(0.0, 0.0, 0.0)
         # Get first object hit by the ray
         distance_hit, object_hit = self.find_nearest_object(ray, scene)
@@ -42,6 +48,12 @@ class Renderer:
         hit_position = ray.origin + ray.direction * distance_hit
         hit_normal = object_hit.normal(hit_position)
         color += self.color_at(object_hit, hit_position, hit_normal, scene)
+        if depth < self.MAX_DEPTH:
+            new_ray_position = hit_position + hit_normal * self.MIN_DISPLACEMENT
+            new_ray_dir = ray.direction - 2 * ray.direction.dot_product(hit_normal) * hit_normal
+            new_ray = Ray(new_ray_position, new_ray_dir)
+            # Make new ray have less energy
+            color += self.ray_trace(new_ray, scene, depth + 1) * object_hit.material.reflection
         return color
 
     def find_nearest_object(self, ray, scene):
@@ -57,7 +69,7 @@ class Renderer:
 
     def color_at(self, object_hit, hit_position, normal, scene):
         material = object_hit.material
-        object_color = material.color
+        object_color = material.color_at(hit_position)
         to_camera = scene.camera - hit_position
         specular_k = 50.0
         color = material.ambient * Color.from_hex("#000000")
